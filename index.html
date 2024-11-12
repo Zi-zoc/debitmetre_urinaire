@@ -10,7 +10,7 @@
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f9; }
         .container { max-width: 800px; margin: auto; }
-        .graph-container { margin-top: 20px; }
+        .graph-container { margin-top: 20px; width: 100%; } /* full-width container */
         .info { font-weight: bold; margin-top: 10px; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         table, th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
@@ -18,26 +18,22 @@
         #generate-pdf { margin-top: 20px; }
         .header-inputs { margin-bottom: 15px; }
         .header-inputs label { margin-right: 10px; }
-        h1 {
-            color: #007bff;  /* Bleu pour le titre */
-        }
+        h1 { color: #007bff; }
         .file-input-container {
             position: relative;
             display: inline-block;
             margin-right: 10px;
         }
-
         #csvFileInput {
             position: absolute;
             top: 0;
             left: 0;
-            opacity: 0; /* Masquer le bouton natif */
+            opacity: 0;
             width: 100%;
             height: 100%;
         }
-
         #custom-file-btn, #generate-pdf {
-            background-color: #007bff;  /* Bleu pour les boutons */
+            background-color: #007bff;
             color: white;
             padding: 10px 20px;
             font-size: 14px;
@@ -46,9 +42,8 @@
             border-radius: 5px;
             text-align: center;
         }
-
         #custom-file-btn:hover, #generate-pdf:hover {
-            background-color: #0056b3; /* Teinte plus foncée au survol */
+            background-color: #0056b3;
         }
     </style>
 </head>
@@ -179,75 +174,79 @@ function plotGraphs(data) {
         line: { color: 'orange' }
     };
 
-    if (times.length > 0 && weights.length > 0 && flowRates.length > 0) {
-        Plotly.newPlot('volume-graph', [volumeTrace], {
-            title: 'Volume en fonction du temps',
-            xaxis: { title: 'Temps (s)' },
-            yaxis: { title: 'Volume (mL)' }
-        });
+    const layout = {
+        title: '',
+        xaxis: { title: 'Temps (s)' },
+        yaxis: { title: '' },
+        width: document.querySelector('.graph-container').clientWidth
+    };
 
-        Plotly.newPlot('flowrate-graph', [flowRateTrace], {
-            title: 'Débit par seconde',
-            xaxis: { title: 'Temps (s)' },
-            yaxis: { title: 'Débit (mL/s)' }
-        });
+    if (times.length > 0 && weights.length > 0 && flowRates.length > 0) {
+        Plotly.newPlot('volume-graph', [volumeTrace], {...layout, title: 'Volume en fonction du temps', yaxis: { title: 'Volume (mL)' }});
+        Plotly.newPlot('flowrate-graph', [flowRateTrace], {...layout, title: 'Débit par seconde', yaxis: { title: 'Débit (mL/s)' }});
     } else {
         alert("Les données ne sont pas valides pour tracer les graphiques.");
     }
 }
 
 async function generatePDF() {
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF();
+    try {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF();
 
-    const nom = document.getElementById('nom').value;
-    const prenom = document.getElementById('prenom').value;
-    const date = document.getElementById('date').value;
-    const heure = document.getElementById('heure').value;
+        const nom = document.getElementById('nom').value;
+        const prenom = document.getElementById('prenom').value;
+        const date = document.getElementById('date').value;
+        const heure = document.getElementById('heure').value;
 
-    function addHeader(doc) {
-        doc.setFontSize(10);
-        doc.text(`Nom : ${nom}`, 10, 20);
-        doc.text(`Prénom : ${prenom}`, 70, 20);
-        doc.text(`Date : ${date}`, 140, 20);
-        doc.text(`Heure : ${heure}`, 180, 20);
-    }
-
-    const topMargin = 30;
-
-    addHeader(pdf);
-
-    const volumeGraph = await html2canvas(document.getElementById('volume-graph'));
-    pdf.addImage(volumeGraph, 'PNG', 10, topMargin + 10, 190, 90);
-
-    const flowrateGraph = await html2canvas(document.getElementById('flowrate-graph'));
-    pdf.addImage(flowrateGraph, 'PNG', 10, topMargin + 110, 190, 90);
-
-    const resultsText = document.getElementById('results').innerHTML;
-    pdf.text(resultsText.replace(/<br>/g, '\n'), 10, topMargin + 220);
-
-    pdf.addPage();
-    addHeader(pdf);
-
-    const tableCanvas = await html2canvas(document.getElementById('data-table'));
-    const imgData = tableCanvas.toDataURL('image/png');
-    const pageHeight = pdf.internal.pageSize.height;
-    const imgHeight = tableCanvas.height * 190 / tableCanvas.width;
-    let position = topMargin;
-    let heightLeft = imgHeight;
-
-    while (heightLeft > 0) {
-        pdf.addImage(imgData, 'PNG', 10, position, 190, imgHeight);
-        heightLeft -= pageHeight;
-        if (heightLeft > 0) {
-            pdf.addPage();
-            addHeader(pdf);
-            position = 0;
+        function addHeader(doc) {
+            doc.setFontSize(10);
+            doc.text(`Nom : ${nom}`, 10, 20);
+            doc.text(`Prénom : ${prenom}`, 70, 20);
+            doc.text(`Date : ${date}`, 140, 20);
+            doc.text(`Heure : ${heure}`, 180, 20);
         }
-    }
 
-    pdf.save('analyse_debitmetrie.pdf');
+        const topMargin = 30;
+        addHeader(pdf);
+
+        // Capture et ajout des graphiques au PDF
+        const volumeGraph = await html2canvas(document.getElementById('volume-graph'));
+        pdf.addImage(volumeGraph, 'PNG', 10, topMargin + 10, 190, 90);
+
+        const flowrateGraph = await html2canvas(document.getElementById('flowrate-graph'));
+        pdf.addImage(flowrateGraph, 'PNG', 10, topMargin + 110, 190, 90);
+
+        // Ajout des résultats au PDF
+        const resultsText = document.getElementById('results').innerHTML;
+        pdf.text(resultsText.replace(/<br>/g, '\n'), 10, topMargin + 220);
+
+        // Ajouter une nouvelle page pour le tableau de données
+        pdf.addPage();
+        addHeader(pdf);
+
+        const tableCanvas = await html2canvas(document.getElementById('data-table'));
+        const imgData = tableCanvas.toDataURL('image/png');
+
+        // Ajustement de la taille de l'image pour afficher 50 lignes environ
+        const reducedWidth = 120;  // Réduisez la largeur pour une image plus petite
+        const aspectRatio = tableCanvas.width / tableCanvas.height;
+        const imgHeight = reducedWidth / aspectRatio;
+
+        // Position de démarrage
+        let position = topMargin;
+
+        // Ajouter l'image avec ajustement pour la taille souhaitée
+        pdf.addImage(imgData, 'PNG', 10, position, reducedWidth, imgHeight);
+
+        // Sauvegarde du PDF
+        pdf.save('analyse_debitmetrie.pdf');
+    } catch (error) {
+        console.error("Erreur lors de la génération du PDF :", error);
+        alert("Une erreur est survenue lors de la génération du PDF. Veuillez vérifier la console pour plus de détails.");
+    }
 }
+
 </script>
 
 </body>
