@@ -150,7 +150,7 @@ function calculateAndDisplayMetrics(data) {
     const flowRates = data.map(row => parseFloat(row['Flow Rate (mL/s)']));
 
     const qmax = Math.max(...flowRates);
-    const tempsMiction = times[times.length - 1] - times[0];
+    const tempsMiction = (times[times.length - 1] - times[0]) + 1 ;
     const volumeMiction = Math.max(...weights);
 
     document.getElementById('results').innerHTML = `Qmax = ${qmax.toFixed(2)} mL/s<br>Temps de miction = ${tempsMiction.toFixed(2)} s<br>Volume de miction = ${volumeMiction.toFixed(2)} mL`;
