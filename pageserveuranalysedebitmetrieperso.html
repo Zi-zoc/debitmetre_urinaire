@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analyse de Débitmétrie Urinaire</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.16.1/plotly.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f9; }
+        .container { max-width: 800px; margin: auto; }
+        .graph-container { margin-top: 20px; }
+        .info { font-weight: bold; margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        table, th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        th { background-color: #f2f2f2; }
+        #generate-pdf { margin-top: 20px; }
+        .header-inputs { margin-bottom: 15px; }
+        .header-inputs label { margin-right: 10px; }
+        h1 {
+            color: #007bff;  /* Bleu pour le titre */
+        }
+        .file-input-container {
+            position: relative;
+            display: inline-block;
+            margin-right: 10px;
+        }
+
+        #csvFileInput {
+            position: absolute;
+            top: 0;
+            left: 0;
+            opacity: 0; /* Masquer le bouton natif */
+            width: 100%;
+            height: 100%;
+        }
+
+        #custom-file-btn, #generate-pdf {
+            background-color: #007bff;  /* Bleu pour les boutons */
+            color: white;
+            padding: 10px 20px;
+            font-size: 14px;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        #custom-file-btn:hover, #generate-pdf:hover {
+            background-color: #0056b3; /* Teinte plus foncée au survol */
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Analyse de Débitmétrie Urinaire</h1>
+
+    <div class="header-inputs">
+        <label>Nom : <input type="text" id="nom" placeholder="Nom du patient"></label>
+        <label>Prénom : <input type="text" id="prenom" placeholder="Prénom du patient"></label>
+        <label>Date : <input type="date" id="date"></label>
+        <label>Heure : <input type="time" id="heure"></label>
+    </div>
+
+    <div class="file-input-container">
+        <button id="custom-file-btn">Téléchargez votre débitmétrie au format CSV</button>
+        <input type="file" id="csvFileInput" accept=".csv">
+    </div>
+
+    <button id="generate-pdf">Générer le PDF</button>
+    
+    <div id="results" class="info"></div>
+    <div id="data-table"></div>
+
+    <div class="graph-container" id="volume-graph"></div>
+    <div class="graph-container" id="flowrate-graph"></div>
+</div>
+
+<script>
+// Fonction pour lire le fichier CSV
+document.getElementById('csvFileInput').addEventListener('change', handleFile);
+document.getElementById('generate-pdf').addEventListener('click', generatePDF);
+
+function handleFile(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const data = parseCSV(e.target.result);
+            if (data && data.length > 0) {
+                displayTable(data);
+                calculateAndDisplayMetrics(data);
+                plotGraphs(data);
+            } else {
+                alert("Le fichier CSV est vide ou mal formaté.");
+            }
+        };
+        reader.readAsText(file);
+    }
+}
+
+function parseCSV(data) {
+    const rows = data.trim().split('\n').map(row => row.split(','));
+    const headers = rows[0];
+
+    if (!headers.includes("Time (ms)") || !headers.includes("Weight (g)") || !headers.includes("Flow Rate (mL/s)")) {
+        alert("Le fichier CSV doit contenir les colonnes : Time (ms), Weight (g), Flow Rate (mL/s).");
+        return [];
+    }
+
+    const csvData = rows.slice(1).map(row => {
+        const obj = {};
+        headers.forEach((header, i) => {
+            obj[header.trim()] = parseFloat(row[i].trim()) || row[i].trim();
+        });
+        return obj;
+    });
+    return csvData;
+}
+
+function displayTable(data) {
+    const timesOriginal = data.map(row => parseFloat(row['Time (ms)']));
+    const firstTime = timesOriginal[0];
+    const timesInSeconds = timesOriginal.map(time => (time - firstTime) / 1000);
+
+    data.forEach((row, index) => {
+        row['Temps (s)'] = timesInSeconds[index];
+    });
+
+    let tableHTML = `<table><tr>`;
+    Object.keys(data[0]).forEach(col => {
+        tableHTML += `<th>${col}</th>`;
+    });
+    tableHTML += `</tr>`;
+
+    data.forEach(row => {
+        tableHTML += `<tr>`;
+        Object.values(row).forEach(value => {
+            tableHTML += `<td>${value}</td>`;
+        });
+        tableHTML += `</tr>`;
+    });
+    tableHTML += `</table>`;
+    document.getElementById('data-table').innerHTML = tableHTML;
+}
+
+function calculateAndDisplayMetrics(data) {
+    const times = data.map(row => row['Temps (s)']);
+    const weights = data.map(row => parseFloat(row['Weight (g)']));
+    const flowRates = data.map(row => parseFloat(row['Flow Rate (mL/s)']));
+
+    const qmax = Math.max(...flowRates);
+    const tempsMiction = times[times.length - 1] - times[0];
+    const volumeMiction = Math.max(...weights);
+
+    document.getElementById('results').innerHTML = `Qmax = ${qmax.toFixed(2)} mL/s<br>Temps de miction = ${tempsMiction.toFixed(2)} s<br>Volume de miction = ${volumeMiction.toFixed(2)} mL`;
+}
+
+function plotGraphs(data) {
+    const times = data.map(row => row['Temps (s)']);
+    const weights = data.map(row => row['Weight (g)']);
+    const flowRates = data.map(row => row['Flow Rate (mL/s)']);
+
+    const volumeTrace = {
+        x: times,
+        y: weights,
+        mode: 'lines+markers',
+        name: 'Volume (mL)',
+        line: { color: 'blue' }
+    };
+
+    const flowRateTrace = {
+        x: times,
+        y: flowRates,
+        mode: 'lines+markers',
+        name: 'Débit (mL/s)',
+        line: { color: 'orange' }
+    };
+
+    if (times.length > 0 && weights.length > 0 && flowRates.length > 0) {
+        Plotly.newPlot('volume-graph', [volumeTrace], {
+            title: 'Volume en fonction du temps',
+            xaxis: { title: 'Temps (s)' },
+            yaxis: { title: 'Volume (mL)' }
+        });
+
+        Plotly.newPlot('flowrate-graph', [flowRateTrace], {
+            title: 'Débit par seconde',
+            xaxis: { title: 'Temps (s)' },
+            yaxis: { title: 'Débit (mL/s)' }
+        });
+    } else {
+        alert("Les données ne sont pas valides pour tracer les graphiques.");
+    }
+}
+
+async function generatePDF() {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF();
+
+    const nom = document.getElementById('nom').value;
+    const prenom = document.getElementById('prenom').value;
+    const date = document.getElementById('date').value;
+    const heure = document.getElementById('heure').value;
+
+    function addHeader(doc) {
+        doc.setFontSize(10);
+        doc.text(`Nom : ${nom}`, 10, 20);
+        doc.text(`Prénom : ${prenom}`, 70, 20);
+        doc.text(`Date : ${date}`, 140, 20);
+        doc.text(`Heure : ${heure}`, 180, 20);
+    }
+
+    const topMargin = 30;
+
+    addHeader(pdf);
+
+    const volumeGraph = await html2canvas(document.getElementById('volume-graph'));
+    pdf.addImage(volumeGraph, 'PNG', 10, topMargin + 10, 190, 90);
+
+    const flowrateGraph = await html2canvas(document.getElementById('flowrate-graph'));
+    pdf.addImage(flowrateGraph, 'PNG', 10, topMargin + 110, 190, 90);
+
+    const resultsText = document.getElementById('results').innerHTML;
+    pdf.text(resultsText.replace(/<br>/g, '\n'), 10, topMargin + 220);
+
+    pdf.addPage();
+    addHeader(pdf);
+
+    const tableCanvas = await html2canvas(document.getElementById('data-table'));
+    const imgData = tableCanvas.toDataURL('image/png');
+    const pageHeight = pdf.internal.pageSize.height;
+    const imgHeight = tableCanvas.height * 190 / tableCanvas.width;
+    let position = topMargin;
+    let heightLeft = imgHeight;
+
+    while (heightLeft > 0) {
+        pdf.addImage(imgData, 'PNG', 10, position, 190, imgHeight);
+        heightLeft -= pageHeight;
+        if (heightLeft > 0) {
+            pdf.addPage();
+            addHeader(pdf);
+            position = 0;
+        }
+    }
+
+    pdf.save('analyse_debitmetrie.pdf');
+}
+</script>
+
+</body>
+</html>
