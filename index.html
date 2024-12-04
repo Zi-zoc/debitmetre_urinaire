@@ -242,23 +242,14 @@ async function generatePDF() {
         // Ajouter l'image avec ajustement pour la taille souhaitée
         pdf.addImage(imgData, 'PNG', 10, position, reducedWidth, imgHeight);
 
-        // Création d'un lien de téléchargement dans un nouvel onglet
-        const pdfOutput = pdf.output('blob'); // Utilisation du format blob
-        const blobUrl = URL.createObjectURL(pdfOutput); // Crée un URL de type Blob pour le PDF
-
-        // Ouvrir le PDF dans un nouvel onglet
-        const newWindow = window.open(blobUrl, '_blank');
-        if (newWindow) {
-            newWindow.focus(); // Focaliser sur le nouvel onglet
-        } else {
-            alert("Impossible d'ouvrir un nouvel onglet. Veuillez vérifier les paramètres du navigateur.");
-        }
-
+        // Sauvegarde du PDF
+        pdf.save('analyse_debitmetrie.pdf');
     } catch (error) {
         console.error("Erreur lors de la génération du PDF :", error);
         alert("Une erreur est survenue lors de la génération du PDF. Veuillez vérifier la console pour plus de détails.");
     }
 }
+
 </script>
 
 </body>
