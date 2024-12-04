@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Analyse de Débitmétrie Urinaire v2</title>
+    <title>Analyse de Débitmétrie Urinaire</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.16.1/plotly.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -68,8 +68,6 @@
     </div>
 
     <button id="generate-pdf">Générer le PDF</button>
-    <!-- Lien de téléchargement du PDF (initialement caché) -->
-    <a id="pdf-link" href="#" style="display:none;" target="_blank">Télécharger le PDF</a>
     
     <div id="results" class="info"></div>
     <div id="data-table"></div>
@@ -244,25 +242,23 @@ async function generatePDF() {
         // Ajouter l'image avec ajustement pour la taille souhaitée
         pdf.addImage(imgData, 'PNG', 10, position, reducedWidth, imgHeight);
 
-        // Utilisation de la méthode 'output' pour générer le PDF
+        // Création d'un lien de téléchargement dans un nouvel onglet
         const pdfOutput = pdf.output('blob'); // Utilisation du format blob
-
-        // Création du lien de téléchargement pour le PDF
-        const downloadLink = document.getElementById('pdf-link'); // Sélectionne l'élément du lien
         const blobUrl = URL.createObjectURL(pdfOutput); // Crée un URL de type Blob pour le PDF
-        downloadLink.href = blobUrl; // Associe l'URL au lien
-        downloadLink.download = 'analyse_debitmetrie.pdf'; // Nom du fichier à télécharger
-        downloadLink.style.display = 'inline-block'; // Affiche le lien
-        downloadLink.textContent = 'Cliquez ici pour télécharger le PDF'; // Modifie le texte du lien
+
+        // Ouvrir le PDF dans un nouvel onglet
+        const newWindow = window.open(blobUrl, '_blank');
+        if (newWindow) {
+            newWindow.focus(); // Focaliser sur le nouvel onglet
+        } else {
+            alert("Impossible d'ouvrir un nouvel onglet. Veuillez vérifier les paramètres du navigateur.");
+        }
 
     } catch (error) {
         console.error("Erreur lors de la génération du PDF :", error);
         alert("Une erreur est survenue lors de la génération du PDF. Veuillez vérifier la console pour plus de détails.");
     }
 }
-
-
-
 </script>
 
 </body>
