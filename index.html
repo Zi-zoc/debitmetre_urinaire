@@ -68,6 +68,8 @@
     </div>
 
     <button id="generate-pdf">Générer le PDF</button>
+    <!-- Lien de téléchargement du PDF (initialement caché) -->
+    <a id="pdf-link" href="#" style="display:none;" target="_blank">Télécharger le PDF</a>
     
     <div id="results" class="info"></div>
     <div id="data-table"></div>
@@ -242,13 +244,24 @@ async function generatePDF() {
         // Ajouter l'image avec ajustement pour la taille souhaitée
         pdf.addImage(imgData, 'PNG', 10, position, reducedWidth, imgHeight);
 
-        // Sauvegarde du PDF
-        pdf.save('analyse_debitmetrie.pdf');
+        // Utilisation de la méthode 'output' pour générer le PDF
+        const pdfOutput = pdf.output('blob'); // Utilisation du format blob
+
+        // Création du lien de téléchargement pour le PDF
+        const downloadLink = document.getElementById('pdf-link'); // Sélectionne l'élément du lien
+        const blobUrl = URL.createObjectURL(pdfOutput); // Crée un URL de type Blob pour le PDF
+        downloadLink.href = blobUrl; // Associe l'URL au lien
+        downloadLink.download = 'analyse_debitmetrie.pdf'; // Nom du fichier à télécharger
+        downloadLink.style.display = 'inline-block'; // Affiche le lien
+        downloadLink.textContent = 'Cliquez ici pour télécharger le PDF'; // Modifie le texte du lien
+
     } catch (error) {
         console.error("Erreur lors de la génération du PDF :", error);
         alert("Une erreur est survenue lors de la génération du PDF. Veuillez vérifier la console pour plus de détails.");
     }
 }
+
+
 
 </script>
 
