@@ -10,7 +10,7 @@
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f9; }
         .container { max-width: 800px; margin: auto; }
-        .graph-container { margin-top: 20px; width: 100%; } /* full-width container */
+        .graph-container { margin-top: 20px; width: 100%; }
         .info { font-weight: bold; margin-top: 10px; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         table, th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
@@ -68,7 +68,6 @@
     </div>
 
     <button id="generate-pdf">Générer le PDF</button>
-    <!-- Lien de téléchargement du PDF (initialement caché) -->
     <a id="pdf-link" href="#" style="display:none;" target="_blank">Télécharger le PDF dans une nouvelle fenêtre</a>
 
     <div id="results" class="info"></div>
@@ -90,9 +89,11 @@ function handleFile(event) {
         reader.onload = function(e) {
             const data = parseCSV(e.target.result);
             if (data && data.length > 0) {
-                displayTable(data);
-                calculateAndDisplayMetrics(data);
-                plotGraphs(data);
+                // Ajout des lignes avec débit 0 lors des pauses de plus de 2 secondes
+                const dataWithPauses = addPausesToData(data);
+                displayTable(dataWithPauses);
+                calculateAndDisplayMetrics(dataWithPauses);
+                plotGraphs(dataWithPauses);
             } else {
                 alert("Le fichier CSV est vide ou mal formaté.");
             }
@@ -118,6 +119,28 @@ function parseCSV(data) {
         return obj;
     });
     return csvData;
+}
+
+function addPausesToData(data) {
+    const newData = [];
+    for (let i = 0; i < data.length - 1; i++) {
+        newData.push(data[i]);
+
+        const timeDiff = data[i + 1]['Time (ms)'] - data[i]['Time (ms)'];
+        if (timeDiff > 2000) { // Si l'écart est supérieur à 2 secondes
+            const missingTimes = Math.floor(timeDiff / 1000) - 1;
+            for (let j = 1; j <= missingTimes; j++) {
+                const missingData = {
+                    'Time (ms)': data[i]['Time (ms)'] + j * 1000,
+                    'Weight (g)': data[i]['Weight (g)'],
+                    'Flow Rate (mL/s)': 0 // débit à 0 pendant la pause
+                };
+                newData.push(missingData);
+            }
+        }
+    }
+    newData.push(data[data.length - 1]);
+    return newData;
 }
 
 function displayTable(data) {
@@ -233,41 +256,20 @@ async function generatePDF() {
         const tableCanvas = await html2canvas(document.getElementById('data-table'));
         const imgData = tableCanvas.toDataURL('image/png');
 
-        // Ajustement de la taille de l'image pour afficher 50 lignes environ
-        const reducedWidth = 120;  // Réduisez la largeur pour une image plus petite
-        const aspectRatio = tableCanvas.width / tableCanvas.height;
-        const imgHeight = reducedWidth / aspectRatio;
+        // Ajustement de l'image dans le PDF
+        pdf.addImage(imgData, 'PNG', 10, topMargin + 10, 190, 100);
 
-        // Position de démarrage
-        let position = topMargin;
-
-        // Ajouter l'image avec ajustement pour la taille souhaitée
-        pdf.addImage(imgData, 'PNG', 10, position, reducedWidth, imgHeight);
-
-        // Génération du PDF
-        const pdfOutput = pdf.output('blob'); // Utilisation du format blob
-
-        // Téléchargement automatique du PDF
-        pdf.save('analyse_debitmetrie.pdf'); // Télécharger directement le fichier
-
-        // Création de l'URL de type Blob pour ouvrir dans une nouvelle fenêtre
-        const blobUrl = URL.createObjectURL(pdfOutput);
-
-        // Affichage du lien pour ouvrir le PDF dans une nouvelle fenêtre
-        const downloadLink = document.getElementById('pdf-link');
-        downloadLink.href = blobUrl;  // Associe l'URL au lien
-        downloadLink.target = '_blank';  // Assurez-vous que le lien s'ouvre dans un nouvel onglet
-        downloadLink.style.display = 'inline-block';  // Affiche le lien
-        downloadLink.textContent = 'Cliquez ici pour ouvrir le PDF dans une nouvelle fenêtre'; // Texte du lien
+        // Générer le PDF
+        const pdfBlob = pdf.output('blob');
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        document.getElementById('pdf-link').href = pdfUrl;
+        document.getElementById('pdf-link').style.display = 'inline-block';
 
     } catch (error) {
         console.error("Erreur lors de la génération du PDF :", error);
-        alert("Une erreur est survenue lors de la génération du PDF. Veuillez vérifier la console pour plus de détails.");
+        alert("Erreur lors de la génération du PDF.");
     }
 }
-
-
-
 </script>
 
 </body>
